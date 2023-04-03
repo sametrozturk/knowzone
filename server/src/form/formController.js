@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const Joi = require('joi');
+const mongoose = require('mongoose');
 const FormRepository = require('./formRepository');
+const PostRepository = require('../post/postRepository');
 const { createSuccessResponse } = require('../common/utils');
 const { KNOWZONE_ERROR_TYPES, changeToCustomError } = require('../common/knowzoneErrorHandler');
 const checkAuthentication = require('../auth/checkAuthentication');
@@ -11,6 +13,7 @@ const VALIDATION_MESSAGES = require('../common/validationMessages');
 const FORM_VALIDATION_MESSAGES = require('./formValidationMessages');
 
 const formRepository = new FormRepository();
+const postRepository = new PostRepository();
 
 const createSchema = Joi.object({
   type: Joi.string()
@@ -149,16 +152,28 @@ const filter = async (req, res, next) => {
 };
 
 const deleteById = async (req, res, next) => {
+  const session = await mongoose.startSession();
   try {
-    const queryResult = await formRepository.deleteOne(
-      { _id: req.params.id, 'owner.id': req.session.userId },
-    );
+    console.log(req);
+    await session.withTransaction(async () => {
+      /// TODO: form type could be included inside request body to avoid unnecessary query
+      const form = await formRepository.findOne({ _id: req.params.id,
+        'owner.id': req.session.userId });
 
-    if (queryResult.deletedCount > 0) {
-      res.json(createSuccessResponse('Deleted the record successfully'));
-    } else {
-      res.json(createSuccessResponse('No record for the given ID'));
-    }
+      const queryResult = await formRepository.deleteOne(
+        { _id: req.params.id, 'owner.id': req.session.userId },
+      );
+
+      await postRepository.deleteMany(
+        { 'owner.id': req.session.userId, type: form.type },
+      );
+
+      if (queryResult.deletedCount > 0) {
+        res.json(createSuccessResponse('Deleted the record successfully'));
+      } else {
+        res.json(createSuccessResponse('No record for the given ID'));
+      }
+    });
   } catch (err) {
     changeToCustomError(err, {
       description: 'Error when deleting record with the given ID',
@@ -170,6 +185,8 @@ const deleteById = async (req, res, next) => {
     });
 
     next(err);
+  } finally {
+    session.endSession();
   }
 };
 
