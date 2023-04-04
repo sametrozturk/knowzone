@@ -153,28 +153,30 @@ const filter = async (req, res, next) => {
 
 const deleteById = async (req, res, next) => {
   const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    console.log(req);
-    await session.withTransaction(async () => {
-      /// TODO: form type could be included inside request body to avoid unnecessary query
-      const form = await formRepository.findOne({ _id: req.params.id,
-        'owner.id': req.session.userId });
+    /// TODO: form type could be included inside request body to avoid unnecessary query
+    const form = await formRepository.findOne({ _id: req.params.id,
+      'owner.id': req.session.userId });
 
-      const queryResult = await formRepository.deleteOne(
-        { _id: req.params.id, 'owner.id': req.session.userId },
-      );
+    const queryResult = await formRepository.deleteOne(
+      { _id: req.params.id, 'owner.id': req.session.userId },
+    );
 
-      await postRepository.deleteMany(
-        { 'owner.id': req.session.userId, type: form.type },
-      );
+    await postRepository.deleteMany(
+      { 'owner.id': req.session.userId, type: form.type },
+    );
 
-      if (queryResult.deletedCount > 0) {
-        res.json(createSuccessResponse('Deleted the record successfully'));
-      } else {
-        res.json(createSuccessResponse('No record for the given ID'));
-      }
-    });
+    if (queryResult.deletedCount > 0) {
+      res.json(createSuccessResponse('Deleted the record successfully'));
+    } else {
+      res.json(createSuccessResponse('No record for the given ID'));
+    }
+
+    await session.commitTransaction();
   } catch (err) {
+    await session.abortTransaction();
+
     changeToCustomError(err, {
       description: 'Error when deleting record with the given ID',
       statusCode: 500,
