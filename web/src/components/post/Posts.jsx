@@ -29,10 +29,13 @@ function Posts({ title, form, posts, setPosts }) {
   const [openForUpdate, setOpenForUpdate] = useState(false);
   const [openForAdd, setOpenForAdd] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openFormDeleteDialog, setOpenFormDeleteDialog] = useState(false);
   const [isLinearProgressModalOpen, setIsLinearProgressModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState();
 
   const handleClose = () => setOpenDialog(false);
+
+  const handleFormDeleteDialogClose = () => setOpenFormDeleteDialog(false);
 
   const setForUpdate = (post) => {
     if (post) {
@@ -138,6 +141,32 @@ function Posts({ title, form, posts, setPosts }) {
     }
   };
 
+  const deleteForm = async () => {
+    setIsLinearProgressModalOpen(true);
+
+    try {
+      if (form) {
+        const response = await fetch(
+          `${process.env.REACT_APP_KNOWZONE_BE_URI}/${BE_ROUTES.FORMS}/${form?.id}`,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            method: 'DELETE',
+            credentials: 'include',
+          },
+        );
+        const result = response.json();
+        console.log(result);
+
+        setPosts([]);
+        setOpenFormDeleteDialog(false);
+      }
+    } catch (error) {
+      console.log(error.message);
+    } finally {
+      setIsLinearProgressModalOpen(false);
+    }
+  };
+
   const addPost = async (values) => {
     let isAddPostSuccessful = false;
     setIsLinearProgressModalOpen(true);
@@ -193,6 +222,7 @@ function Posts({ title, form, posts, setPosts }) {
   };
 
   const handleConfirm = () => deletePost();
+  const handleFormDeleteConfirm = () => deleteForm();
 
   return (
     <LinearProgressModal isOpen={isLinearProgressModalOpen}>
@@ -200,15 +230,54 @@ function Posts({ title, form, posts, setPosts }) {
         Header={(
           <ContentWrapperHeaderContainer>
             <h2>{title}</h2>
-            <Button
-              variant="outlined"
-              color="primary"
-              onClick={() => setOpenForAdd(true)}
-              size="small"
-              style={{ height: 40 }}
+            <div style={{ justifyContent: 'space-between' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => setOpenForAdd(true)}
+                size="small"
+                style={{ height: 40 }}
+              >
+                Create Post
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setOpenFormDeleteDialog(true)}
+                size="small"
+                style={{ marginLeft: '5px', height: 40 }}
+              >
+                Delete Form
+              </Button>
+            </div>
+            <Dialog
+              open={openFormDeleteDialog}
+              onClose={handleFormDeleteDialogClose}
+              aria-labelledby="alert-dialog-title"
+              aria-describedby="alert-dialog-description"
             >
-              Create Post
-            </Button>
+              <DialogTitle id="alert-dialog-title">
+                Are you sure you want to delete the form?
+                This will cause the deletion of all associated posts.
+              </DialogTitle>
+              <DialogActions>
+                <Button onClick={handleFormDeleteDialogClose} color="primary">
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleFormDeleteConfirm}
+                  style={{
+                    backgroundColor: IRREVERSIBLE_ACTION,
+                    color: WHITE,
+                  }}
+                  autoFocus
+                >
+                  Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
+
           </ContentWrapperHeaderContainer>
         )}
       >
