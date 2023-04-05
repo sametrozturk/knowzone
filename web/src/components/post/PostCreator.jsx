@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { FormHelperText, FormControl } from '@mui/material';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
@@ -9,6 +9,7 @@ import getContentPart from './contentParts/getContentPart';
 import Topics from './defaultParts/Topics';
 import Creator from '../common/Creator';
 import postCreatorSchema from './postCreatorSchema';
+import { NUMERIC_KEY_PREFIX, addNumericKeyPrefix } from './postCreatorUtils';
 
 const Title = styled('span')(({ theme }) => ({
   display: 'block',
@@ -73,7 +74,7 @@ const ContentParts = ({ content }) => {
               )
             }
               control={control}
-              name={`content.${k}`}
+              name={`content.${NUMERIC_KEY_PREFIX}${k}`}
               shouldUnregister
             />
           </FormDataRow>
@@ -83,23 +84,28 @@ const ContentParts = ({ content }) => {
       return null;
     }));
 };
+
+const newPostDefaultValues = (type) => ({
+  type: type ?? '',
+  topics: [],
+  content: {},
+});
+
+const oldPostDefaultValues = (oldPost) => ({
+  id: oldPost?.id ?? '',
+  type: oldPost?.type ?? '',
+  topics: oldPost?.topics ?? [],
+  content: addNumericKeyPrefix(oldPost?.content) ?? {},
+});
+
 function PostCreator({ buttonTitle, open, setOpen, handler, form, oldPost }) {
   const [areTopicsUnique, setAreTopicsUnique] = useState(true);
 
   const useFormMethods = useForm({
     resolver: joiResolver(postCreatorSchema),
-    defaultValues: {
-      type: form?.type ?? oldPost?.type ?? '',
-      topics: oldPost?.topics ?? [],
-    },
+    defaultValues: oldPost ? oldPostDefaultValues(oldPost) : newPostDefaultValues(form?.type),
   });
-  const { setValue, formState: { errors }, handleSubmit, reset, getValues } = useFormMethods;
-
-  useEffect(() => {
-    if (oldPost) {
-      Object.entries(oldPost).forEach(([k, v]) => setValue(k, v));
-    }
-  }, [oldPost, setValue]);
+  const { formState: { errors }, handleSubmit, reset, getValues } = useFormMethods;
 
   const onSubmit = async () => {
     if (areTopicsUnique) {
